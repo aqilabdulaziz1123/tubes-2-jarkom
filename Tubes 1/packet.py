@@ -39,7 +39,7 @@ class Bucket(): #builder packet
             self.checksum = struct.pack('2s',checksum(b"%b%b%b%b" % (self.type,self.length,self.seqnum,self.data)))
         else:
             self.checksum = b'\x00\x00'
-        print(self.checksum)
+        # print(self.checksum)
 
     def __repr__(self):
         return f"{self.type}\n{self.seqnum}\n{self.length}\n{self.checksum}\n{self.data}"

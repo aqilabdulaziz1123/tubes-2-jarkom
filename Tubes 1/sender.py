@@ -3,7 +3,7 @@ import sys
 from packet import Bucket, PacketUnwrapper
 import time
 from concurrent.futures import ThreadPoolExecutor
-
+import wave
 
 class Sender():
     def __init__(self,target,port,filename):
@@ -81,10 +81,18 @@ class Sender():
 if __name__ == '__main__':
     # filename = input()
     # listtarget = sys.argv[1].split(',')
-    addresses = input()
-    port = int(input())
-    filename = input()
-    listtarget = addresses.split(',')
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        for target in listtarget:
-            executor.submit(Sender,target,port,filename)
+    # addresses = input()
+    # port = int(input())
+    # filename = input()
+    # listtarget = addresses.split(',')
+    # with ThreadPoolExecutor(max_workers=10) as executor:
+    #     for target in listtarget:
+    #         executor.submit(Sender,target,port,filename)
+    try:
+        filename = input("masukan nama file : ")
+        print(filename)
+        w = wave.open(filename,'r')
+        print(w.getparams())
+        w.close()
+    except wave.Error as identifier:
+        print(identifier)
