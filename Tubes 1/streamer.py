@@ -14,22 +14,31 @@ class Streamer():
         self.socket.settimeout(3)
         self.port = int(port)
         self.subscriber = []
-        self.executor = ThreadPoolExecutor(max_workers=2)
+        self.executor = ThreadPoolExecutor(max_workers=3)
         self.onplay = True
 
         #open audio file
         self.audio = wave.open(filename,'r')
         self.chunks = []
-        data = self.audio.readframes(8000)
-        num = 0
-        while data:
-            self.chunks.append(Bucket(data,b'\x00',num,len(data).to_bytes(2,'big')))
-            num += 1
-        self.chunks[-1].setType(b'\x02')
         #waiting subscriber
+        self.executor.submit(self.load2bucket)
         self.executor.submit(self.waitSubscriber)
         self.executor.submit(self.sendChunk)
 
+    def load2bucket(self):
+        nChannels = self.audio.getnchannels()
+        sampleWidth = self.audio.getsampwidth()
+        nFrames = self.audio.getnframes()
+
+        frameSize = nChannels * sampleWidth # In bytes
+        frameCountPerChunk = CHUNK_SIZE / frameSize
+        data = self.audio.readframes(int(frameCountPerChunk))
+        num = 0
+        while num < 100:
+            print("loading"+ str(num) +"/"+ str(nFrames))
+            self.chunks.append(Bucket(data,b'\x00',num,len(data).to_bytes(2,'big')))
+            num += 1
+        self.chunks[-1].setType(b'\x02')
 
     def waitSubscriber(self):
         #menunggu subscriber
@@ -41,7 +50,7 @@ class Streamer():
             self.socket.sendto(self.audio.getparams(),addr)
             print("Mengirim metadata ke subsriber")
 
-    def sendChunk(self,address):
+    def sendChunk(self):
         nChannels = self.audio.getnchannels()
         sampleWidth = self.audio.getsampwidth()
         frameRate = self.audio.getframerate()
@@ -49,15 +58,20 @@ class Streamer():
         frameSize = nChannels * sampleWidth # In bytes
         frameCountPerChunk = CHUNK_SIZE / frameSize
 
-        chunkTime = 1000 * frameCountPerChunk / frameRate # In milliseconds.
-        for chunk in self.chunks:
-            startTime = time.time()
-            for subs in self.subscriber:
-                self.send(chunk,(subs,self.port))
-                # self.executor.submit(self.send,chunk,subs)
-            endTime = time.time()
-            if endTime-startTime < chunkTime:
-                time.sleep(chunkTime - (endTime-startTime))
+        chunkTime = frameCountPerChunk / frameRate # In milliseconds.
+        nowplay = 0
+        while self.onplay:
+            if(nowplay<len(self.chunks)):
+                print("send chunk")
+                startTime = time.time()
+                for subs in self.subscriber:
+                    self.send(self.chunks[nowplay],(subs,self.port))
+                endTime = time.time()
+                if endTime-startTime < chunkTime:
+                    time.sleep(chunkTime - (endTime-startTime))
+                nowplay+=1
+            if(self.chunks[nowplay].type == b'\x02'):
+                self.onplay = False
 
 
     def send(self,bucket,addr):
